@@ -26,6 +26,7 @@
 #include <stdbool.h>
 #include "ds1302.h"
 #include "ssd1306.h"
+#include "tmp102.h"
 #include "image.h"
 
 /* USER CODE END Includes */
@@ -53,6 +54,7 @@ UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
 uint8_t changeScreen = 0;
+uint8_t prevChangeScreen = 9;
 static bool btnSel = false;
 /* USER CODE END PV */
 
@@ -130,6 +132,16 @@ int main(void)
   for(int i=0; i<sizeof(datetime); i++)
 	  datetime[i] = 0;
 
+  // 更新温度，跳过循环标记
+  uint8_t SKIP_FOR_TEMP = 9;
+  uint8_t skipForTempCnt = 9;  // 计数
+  // Temperature text buffer
+  uint8_t tempBuf[12];
+  // 1024 显示
+  uint8_t x_1024 = 0;
+  uint8_t x_step = 4;
+  sprintf((char*)tempBuf, "0.0");
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -139,22 +151,27 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
+	// changeScreen 控制当前显示的内容
+	// 最好记录 changeScreen 是否发生变化，使用 prevChangeScreen
+	// 例如 时间，温度，关闭屏幕
 	if(btnSel) {
 		changeScreen ++;
 		HAL_Delay(300);
 	}
 
-	if(changeScreen == 2) {
+	if(changeScreen == 5) {
 		changeScreen=0;
 	}
 
 	btnSel = false;
+	// End of changeScreen
 
-	if(changeScreen == 0) {
+	if(changeScreen == 0 ) { //&& prevChangeScreen != changeScreen
 		ssd1306_DisplayOff();
+//		prevChangeScreen = changeScreen;
 	} else if(changeScreen == 1) {
+		// 显示时间
 	  ssd1306_DisplayOn();
-	  HAL_Delay(100);
 	  DS1302_ReadTime(datetime);
 
 	  ssd1306_Clear();
@@ -163,8 +180,43 @@ int main(void)
 	  sprintf((char*)buf, "%02d:%02d:%02d", datetime[4], datetime[5], datetime[6]);
 	  ssd1306_WriteString((char*)buf, Font_11x18);
 	  ssd1306_UpdateScreen();
-	}
+	} else if (changeScreen == 2) {
+		if(skipForTempCnt == SKIP_FOR_TEMP) {
+			skipForTempCnt = 0;
+			tmp102_ReadTemperature(tempBuf);
+		}
+
+		skipForTempCnt++;
+
+		//显示温度
+		ssd1306_Clear();
+
+		ssd1306_SetCursor(8, 0);
+		ssd1306_WriteString("Temperature 1", Font_7x10);
+		ssd1306_SetCursor(8, 24);
+		ssd1306_WriteString((char*)tempBuf, Font_11x18);
+		ssd1306_UpdateScreen();
+	} else if (changeScreen == 3) {
+		if(x_1024 > 58) {
+			x_step = -x_step;
+		}
+
+		ssd1306_Clear();
+  		ssd1306_SetCursor(x_1024, 12);
+  		ssd1306_WriteString("1024", Font_16x26);
+  		ssd1306_UpdateScreen();
+  		x_1024 += x_step;
+  		prevChangeScreen = changeScreen;
+  	} else if (changeScreen == 4 && prevChangeScreen != changeScreen) {
+		prevChangeScreen = changeScreen;
+		ssd1306_Clear();
+  		ssd1306_DrawBitmap(16, 0, 94, 56, DoubleEleven);
+  		ssd1306_UpdateScreen();
+  	}
+
+	HAL_Delay(100);
   }
+  // End of while
 
   HAL_TIM_Base_Stop(&htim2);
 

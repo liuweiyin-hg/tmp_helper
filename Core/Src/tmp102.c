@@ -26,7 +26,6 @@ void tmp102_ReadTemperature(uint8_t* tempText)
 	if(ret != HAL_OK) {
 		strcpy((char*)buf, "T102_Err\r\n");
 	} else {
-
 		// Read 2 bytes from the temperature register
 		ret = HAL_I2C_Master_Receive(&TMP102_I2C_PORT, TMP102_ADDR, buf, 2, HAL_MAX_DELAY);
 		if(ret != HAL_OK) {
@@ -45,9 +44,10 @@ void tmp102_ReadTemperature(uint8_t* tempText)
 
 			// Convert temperature to decimal format
 			temp_c *= 100;
-			sprintf((char*)tempText, "%d.%02u C\r\n", (int16_t)temp_c/100, (int16_t)temp_c%100);
+			sprintf((char*)tempText, "%d.%02u", (int16_t)temp_c/100, (int16_t)temp_c%100);
+			sprintf((char*)buf, "%d.%02u\r\n", (int16_t)temp_c/100, (int16_t)temp_c%100);
 		}
 	}
 
-	HAL_UART_Transmit(&TMP102_UART_PORT, buf, strlen((char*)buf), HAL_MAX_DELAY);  // TODO for debug
+	HAL_UART_Transmit(&TMP102_UART_PORT, buf, strlen((char*)buf), HAL_MAX_DELAY);
 }
